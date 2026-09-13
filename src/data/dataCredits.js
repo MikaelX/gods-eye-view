@@ -135,6 +135,13 @@ export const DATA_CREDITS = [
       '<a href="https://tfl.gov.uk/info-for/open-data-users/" target="_blank" rel="noopener">Powered by TfL Open Data</a>. ' +
       'Contains OS data © Crown copyright and database rights.',
   },
+
+  {
+    key: 'trafikverket-cctv',
+    html:
+      'CCTV cameras &amp; frames (Stockholm county): ' +
+      '<a href="https://api.trafikinfo.trafikverket.se/" target="_blank" rel="noopener">Contains data from Trafikverket</a>',
+  },
   {
     key: 'gbfs',
     html: 'Bikeshare availability: GBFS operator feeds (e.g. Austin BCycle)',

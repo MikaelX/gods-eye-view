@@ -1,0 +1,45 @@
+{
+  "RESPONSE": {
+    "RESULT": [
+      {
+        "Camera": [
+          {
+            "Id": "SE_STA_CAMERA_Pacific_581",
+            "Name": "TPL BERGSHAMRA",
+            "PhotoUrl": "https://api.trafikinfo.trafikverket.se/v2/Images/fixture-bergshamra.jpg",
+            "Direction": 95,
+            "Geometry": { "WGS84": "POINT (18.0312 59.3814)" }
+          },
+          {
+            "Id": "SE_STA_CAMERA_Orion_562",
+            "Name": "STOCKSUND",
+            "PhotoUrl": "https://api.trafikinfo.trafikverket.se/v2/Images/fixture-stocksund.jpg",
+            "Direction": 360,
+            "Geometry": { "WGS84": "POINT (18.0475 59.3838)" }
+          },
+          {
+            "Id": "SE_STA_CAMERA_Q_50438863",
+            "Name": "TPL DANDERYDS S",
+            "PhotoUrl": "https://api.trafikinfo.trafikverket.se/v2/Images/fixture-danderyd.jpg",
+            "Direction": "South",
+            "Geometry": { "WGS84": "POINT (18.0421 59.3942)" }
+          },
+          {
+            "Id": "bad-sweref-should-skip",
+            "Name": "NO WGS84",
+            "PhotoUrl": "https://api.trafikinfo.trafikverket.se/v2/Images/x.jpg",
+            "Direction": 10,
+            "Geometry": { "SWEREF99TM": "POINT (675000 6580000)" }
+          },
+          {
+            "Id": "bad-host-should-skip",
+            "Name": "EVIL HOST",
+            "PhotoUrl": "https://evil.example/cam.jpg",
+            "Direction": 10,
+            "Geometry": { "WGS84": "POINT (18.07 59.33)" }
+          }
+        ]
+      }
+    ]
+  }
+}

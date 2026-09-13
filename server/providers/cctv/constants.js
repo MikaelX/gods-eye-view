@@ -46,3 +46,12 @@ export const CCTV_FRAME_MAX_BODY_BYTES = 16 * 1024 * 1024;
 export const CCTV_MEDIA_FETCH_TIMEOUT_MS = 15 * 1000;
 /** Declared size ceiling for fixed media responses. */
 export const CCTV_MEDIA_MAX_BODY_BYTES = 64 * 1024 * 1024;
+
+/** Trafikverket Trafikinfo Camera API (Sweden). Requires TRAFIKVERKET_API_KEY. */
+export const TRAFIKVERKET_CAMERA_URL =
+  'https://api.trafikinfo.trafikverket.se/v2/data.json';
+/** Stockholm county (CountyNo 1) — default scope for the optional pack. */
+export const TRAFIKVERKET_STOCKHOLM_COUNTY_NO = 1;
+export const DEFAULT_TRAFIKVERKET_MAX_SOURCES = 200;
+/** Prioritization anchor: Stockholm city centre (Sergels torg area). */
+export const STOCKHOLM_CENTER = { lat: 59.3326, lon: 18.0649 };

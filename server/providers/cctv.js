@@ -11,6 +11,7 @@ import {
   fetchCctvMediaUpstream,
 } from './cctv/media.js';
 import { CCTV_FRAME_FETCH_TIMEOUT_MS } from './cctv/constants.js';
+import { trafikverketCctvStatus } from './cctv/trafikverket.js';
 import { googleServerApiKey } from './places/google-key.js';
 export { CCTV_FRAME_FETCH_TIMEOUT_MS, fetchCctvImageFromUpstream };
 /**
@@ -20,6 +21,7 @@ export { CCTV_FRAME_FETCH_TIMEOUT_MS, fetchCctvImageFromUpstream };
  * Endpoints:
  *   GET /api/cctv/sources        — list all registered camera sources
  *   GET /api/cctv/health         — per-camera health/status report
+ *   GET /api/cctv/trafikverket-status — Trafikverket pack configured? (no secrets)
  *   GET /api/cctv/stream/:id     — stream info (feedType, URLs) for a camera
  *   GET /api/cctv/media/:id      — proxy live video/image media from upstream
  *   GET /api/cctv/frame/:id      — single frame with fallback chain
@@ -158,6 +160,16 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
             'Cache-Control': 'no-store',
           });
           res.end(JSON.stringify(body));
+          return;
+        }
+
+        if (url.pathname === '/trafikverket-status') {
+          // Presence-only: never echo TRAFIKVERKET_API_KEY (or any secret).
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          });
+          res.end(JSON.stringify(trafikverketCctvStatus(process.env)));
           return;
         }
 
