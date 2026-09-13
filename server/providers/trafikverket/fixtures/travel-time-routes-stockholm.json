@@ -1,0 +1,49 @@
+{
+  "RESPONSE": {
+    "RESULT": [
+      {
+        "TravelTimeRoute": [
+          {
+            "Id": "route-freeflow-1",
+            "Name": "E4 Bergshamra",
+            "TrafficStatus": "freeflow",
+            "AverageSpeed": 92,
+            "TravelTime": 120,
+            "CountyNo": 1,
+            "Geometry": {
+              "WGS84": "LINESTRING (18.04 59.38, 18.05 59.37, 18.06 59.36)"
+            }
+          },
+          {
+            "Id": "route-heavy-1",
+            "Name": "E18 Stocksund",
+            "TrafficStatus": "heavy",
+            "AverageSpeed": 28,
+            "TravelTime": 340,
+            "CountyNo": 1,
+            "Geometry": {
+              "WGS84": "LINESTRING (18.06 59.39, 18.07 59.385, 18.08 59.38)"
+            }
+          },
+          {
+            "Id": "route-congested-1",
+            "Name": "Norrtull",
+            "TrafficStatus": "congested",
+            "AverageSpeed": 8,
+            "TravelTime": 600,
+            "CountyNo": 1,
+            "Geometry": {
+              "WGS84": "LINESTRING (18.03 59.35, 18.035 59.348, 18.04 59.345)"
+            }
+          },
+          {
+            "Id": "route-bad-geom",
+            "Name": "Nowhere",
+            "TrafficStatus": "freeflow",
+            "Geometry": { "WGS84": "POINT (18.06 59.33)" }
+          }
+        ]
+      }
+    ]
+  }
+}

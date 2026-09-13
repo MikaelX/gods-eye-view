@@ -14,7 +14,7 @@
 /** Longest accepted key/token value. Real provider keys are all far shorter. */
 export const KEY_SETUP_VALUE_LIMIT = 512;
 
-/** Most env vars accepted in one save. The registry defines ten. */
+/** Most env vars accepted in one save. The registry defines eleven. */
 export const KEY_SETUP_UPDATE_LIMIT = 16;
 
 /** Header line written above keys the panel appends to a .env file. */
@@ -71,6 +71,15 @@ export const KEY_SETUP_KEYS = Object.freeze([
     envVars: Object.freeze(['FIRMS_MAP_KEY']),
     tier: 'free',
   }),
+  Object.freeze({
+    id: 'trafikverket',
+    title: 'TRAFIKVERKET',
+    unlocks: 'Swedish nationwide CCTV + street traffic pack (TravelTimeRoute, Situation, TrafficFlow, RoadCondition, Weather, ATK)',
+    getUrl: 'https://api.trafikinfo.trafikverket.se/',
+    envVars: Object.freeze(['TRAFIKVERKET_API_KEY']),
+    tier: 'free',
+  }),
+
   Object.freeze({
     id: 'tomtom',
     title: 'TOMTOM',
