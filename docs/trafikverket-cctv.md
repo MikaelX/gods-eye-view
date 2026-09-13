@@ -104,7 +104,7 @@ want live flow tiles for cities outside Sweden.
 Med nyckel laddar God's Eye View från Trafikverkets officiella Trafikinfo-API:
 
 1. **Camera** — aktiva trafikkameror som stillbilder (`feedType: image`) via
-   varje kameras `PhotoUrl`. Hela Sverige som standard.
+   varje kameras officiella `PhotoUrl`. Hela Sverige som standard.
 2. **TravelTimeRoute** (schema 1.5) — väg-/korridorsegment med
    `Geometry.WGS84` LINESTRING + `TrafficStatus`. Primär svensk trafikfärgning.
 3. **Situation** (schema 1.6, **kräver** `namespace="road.trafficinfo"`) —
