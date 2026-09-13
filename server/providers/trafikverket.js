@@ -1,6 +1,7 @@
 import { parseTrafikverketCountyNos } from './trafikverket/county.js';
 import { postTrafikinfo } from './trafikverket/client.js';
 import { trafikverketTrafficStatus } from './trafikverket/status.js';
+import { parseBboxParam, filterFeaturesByBbox } from './trafikverket/geo.js';
 import {
   buildTravelTimeRouteRequestXml,
   travelTimeRoutesToGeoJson,
@@ -13,15 +14,59 @@ import {
   resolveMaxSituations,
   isTrafikverketSituationEnabled,
 } from './trafikverket/situations.js';
+import {
+  buildTrafficFlowRequestXml,
+  trafficFlowToGeoJson,
+  resolveMaxTrafficFlow,
+  isTrafikverketTrafficFlowEnabled,
+} from './trafikverket/trafficFlow.js';
+import {
+  buildRoadConditionRequestXml,
+  roadConditionsToGeoJson,
+  resolveMaxRoadConditions,
+  isTrafikverketRoadConditionEnabled,
+} from './trafikverket/roadCondition.js';
+import {
+  buildWeatherMeasurepointRequestXml,
+  weatherMeasurepointsToGeoJson,
+  resolveMaxWeatherMeasurepoints,
+  isTrafikverketWeatherEnabled,
+} from './trafikverket/weatherMeasurepoint.js';
+import {
+  buildTrafficSafetyCameraRequestXml,
+  trafficSafetyCamerasToGeoJson,
+  resolveMaxTrafficSafetyCameras,
+  isTrafikverketSafetyCameraEnabled,
+} from './trafikverket/trafficSafetyCamera.js';
 import { TRAFIKVERKET_CACHE_TTL_MS } from './trafikverket/constants.js';
 
 /**
- * Vite middleware: Trafikverket Swedish street traffic.
+ * Apply optional bbox query filter to a FeatureCollection body.
+ * @param {object} body
+ * @param {URL} url
+ */
+function maybeBbox(body, url) {
+  const bbox = parseBboxParam(url.searchParams.get('bbox'));
+  if (!bbox || !body?.features) return body;
+  const features = filterFeaturesByBbox(body.features, bbox);
+  return {
+    ...body,
+    features,
+    bboxFiltered: true,
+    bboxTotalBefore: body.features.length,
+  };
+}
+
+/**
+ * Vite middleware: Trafikverket nationwide Sweden pack.
  *
  *   GET /api/trafikverket/status
- *   GET /api/trafikverket/travel-time-routes
- *   GET /api/trafikverket/situations
- *   GET /api/trafikverket/traffic-flow → 501 stub
+ *   GET /api/trafikverket/travel-time-routes[?bbox=]
+ *   GET /api/trafikverket/situations[?bbox=]
+ *   GET /api/trafikverket/traffic-flow[?bbox=]
+ *   GET /api/trafikverket/road-conditions[?bbox=]
+ *   GET /api/trafikverket/weather-measurepoints[?bbox=]
+ *   GET /api/trafikverket/traffic-safety-cameras[?bbox=]  (ATK POIs)
  *
  * @returns {import('vite').Plugin}
  */
@@ -60,6 +105,10 @@ export function trafikverketProxy() {
     return promise;
   }
 
+  function countyCacheKey() {
+    return JSON.stringify(parseTrafikverketCountyNos(process.env));
+  }
+
   const install = (server) => {
     server.middlewares.use('/api/trafikverket', async (req, res) => {
       try {
@@ -76,20 +125,17 @@ export function trafikverketProxy() {
             sendJson(res, 503, {
               error: 'not_configured',
               message:
-                'Set TRAFIKVERKET_API_KEY (and TRAFIKVERKET_TRAFFIC_ENABLED≠0) for Swedish street traffic.',
+                'Set TRAFIKVERKET_API_KEY (and TRAFIKVERKET_TRAFFIC_ENABLED≠0).',
             });
             return;
           }
           const max = resolveMaxTravelTimeRoutes();
-          const countyKey = JSON.stringify(
-            parseTrafikverketCountyNos(process.env),
-          );
           const body = await cachedFetch(
-            `routes:${countyKey}:${max}`,
+            `routes:${countyCacheKey()}:${max}`,
             buildTravelTimeRouteRequestXml,
             (payload) => travelTimeRoutesToGeoJson(payload, max),
           );
-          sendJson(res, 200, body);
+          sendJson(res, 200, maybeBbox(body, url));
           return;
         }
 
@@ -98,30 +144,93 @@ export function trafikverketProxy() {
             sendJson(res, 503, {
               error: 'not_configured',
               message:
-                'Set TRAFIKVERKET_API_KEY (and TRAFIKVERKET_SITUATION_ENABLED≠0) for Situation overlay.',
+                'Set TRAFIKVERKET_API_KEY (and TRAFIKVERKET_SITUATION_ENABLED≠0).',
             });
             return;
           }
           const max = resolveMaxSituations();
-          const countyKey = JSON.stringify(
-            parseTrafikverketCountyNos(process.env),
-          );
           const body = await cachedFetch(
-            `situations:${countyKey}:${max}`,
+            `situations:${countyCacheKey()}:${max}`,
             buildSituationRequestXml,
             (payload) => situationsToGeoJson(payload, max),
           );
-          sendJson(res, 200, body);
+          sendJson(res, 200, maybeBbox(body, url));
           return;
         }
 
         if (path === '/traffic-flow') {
-          sendJson(res, 501, {
-            error: 'not_implemented',
-            message:
-              'TrafficFlow point sensors are reserved for a follow-up. Use TravelTimeRoute + Situation.',
-            ...trafikverketTrafficStatus(process.env),
-          });
+          if (!isTrafikverketTrafficFlowEnabled()) {
+            sendJson(res, 503, {
+              error: 'not_configured',
+              message:
+                'Set TRAFIKVERKET_API_KEY (and TRAFIKVERKET_TRAFFIC_FLOW_ENABLED≠0).',
+            });
+            return;
+          }
+          const max = resolveMaxTrafficFlow();
+          const body = await cachedFetch(
+            `flow:${countyCacheKey()}:${max}`,
+            buildTrafficFlowRequestXml,
+            (payload) => trafficFlowToGeoJson(payload, max),
+          );
+          sendJson(res, 200, maybeBbox(body, url));
+          return;
+        }
+
+        if (path === '/road-conditions') {
+          if (!isTrafikverketRoadConditionEnabled()) {
+            sendJson(res, 503, {
+              error: 'not_configured',
+              message:
+                'Set TRAFIKVERKET_API_KEY (and TRAFIKVERKET_ROAD_CONDITION_ENABLED≠0).',
+            });
+            return;
+          }
+          const max = resolveMaxRoadConditions();
+          const body = await cachedFetch(
+            `roadcond:${countyCacheKey()}:${max}`,
+            buildRoadConditionRequestXml,
+            (payload) => roadConditionsToGeoJson(payload, max),
+          );
+          sendJson(res, 200, maybeBbox(body, url));
+          return;
+        }
+
+        if (path === '/weather-measurepoints') {
+          if (!isTrafikverketWeatherEnabled()) {
+            sendJson(res, 503, {
+              error: 'not_configured',
+              message:
+                'Set TRAFIKVERKET_API_KEY (and TRAFIKVERKET_WEATHER_ENABLED≠0).',
+            });
+            return;
+          }
+          const max = resolveMaxWeatherMeasurepoints();
+          const body = await cachedFetch(
+            `weather:${countyCacheKey()}:${max}`,
+            buildWeatherMeasurepointRequestXml,
+            (payload) => weatherMeasurepointsToGeoJson(payload, max),
+          );
+          sendJson(res, 200, maybeBbox(body, url));
+          return;
+        }
+
+        if (path === '/traffic-safety-cameras') {
+          if (!isTrafikverketSafetyCameraEnabled()) {
+            sendJson(res, 503, {
+              error: 'not_configured',
+              message:
+                'Set TRAFIKVERKET_API_KEY (and TRAFIKVERKET_SAFETY_CAMERA_ENABLED≠0).',
+            });
+            return;
+          }
+          const max = resolveMaxTrafficSafetyCameras();
+          const body = await cachedFetch(
+            `atk:${countyCacheKey()}:${max}`,
+            buildTrafficSafetyCameraRequestXml,
+            (payload) => trafficSafetyCamerasToGeoJson(payload, max),
+          );
+          sendJson(res, 200, maybeBbox(body, url));
           return;
         }
 
@@ -156,8 +265,29 @@ export {
   situationsToGeoJson,
 } from './trafikverket/situations.js';
 export {
+  buildTrafficFlowRequestXml,
+  normalizeTrafficFlow,
+  trafficFlowToGeoJson,
+} from './trafikverket/trafficFlow.js';
+export {
+  buildRoadConditionRequestXml,
+  normalizeRoadCondition,
+  roadConditionsToGeoJson,
+} from './trafikverket/roadCondition.js';
+export {
+  buildWeatherMeasurepointRequestXml,
+  normalizeWeatherMeasurepoint,
+  weatherMeasurepointsToGeoJson,
+} from './trafikverket/weatherMeasurepoint.js';
+export {
+  buildTrafficSafetyCameraRequestXml,
+  normalizeTrafficSafetyCamera,
+  trafficSafetyCamerasToGeoJson,
+} from './trafikverket/trafficSafetyCamera.js';
+export {
   parseTrafikverketCountyNos,
   buildCountyNoFilterXml,
   countyNosLabel,
 } from './trafikverket/county.js';
 export { escapeXml, parseWktPoint, parseWktLineString } from './trafikverket/wkt.js';
+export { prioritizeFeatures, parseBboxParam } from './trafikverket/geo.js';

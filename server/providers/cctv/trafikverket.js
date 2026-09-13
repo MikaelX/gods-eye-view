@@ -9,7 +9,11 @@ import {
   parseTrafikverketCountyNos,
   buildCountyNoFilterXml,
 } from '../trafikverket/county.js';
-import { SWEDEN_BBOX } from '../trafikverket/constants.js';
+import {
+  SWEDEN_BBOX,
+  SWEDEN_METRO_ANCHORS,
+  DEFAULT_TRAFIKVERKET_MAX_CCTV,
+} from '../trafikverket/constants.js';
 import {
   toFiniteNumber,
   parsePointString,
@@ -38,7 +42,7 @@ export function trafikverketCctvStatus(env = process.env) {
 }
 
 /**
- * Build the Trafikinfo REQUEST XML for Stockholm county road cameras.
+ * Build the Trafikinfo REQUEST XML for road cameras (nationwide by default).
  * Content-Type must be text/xml or text/plain (application/xml can flake auth).
  *
  * @param {string} apiKey
@@ -47,7 +51,7 @@ export function trafikverketCctvStatus(env = process.env) {
  */
 export function buildTrafikverketCameraRequestXml(
   apiKey,
-  countyNos = TRAFIKVERKET_STOCKHOLM_COUNTY_NO,
+  countyNos = null,
 ) {
   const key = escapeXml(String(apiKey || '').trim());
   // Accept legacy single CountyNo number OR array/null from parseTrafikverketCountyNos.
@@ -58,7 +62,7 @@ export function buildTrafikverketCameraRequestXml(
     const n = Number(counties);
     counties = Number.isFinite(n) && n > 0
       ? [Math.floor(n)]
-      : [TRAFIKVERKET_STOCKHOLM_COUNTY_NO];
+      : null;
   }
   const countyFilter = buildCountyNoFilterXml(counties);
   const countyClause = countyFilter ? countyFilter : '';
@@ -149,14 +153,14 @@ export function normalizeTrafikverketCamera(record) {
   return {
     id: cameraId,
     name,
-    city: 'Stockholm',
-    cityId: 'stockholm',
+    city: 'Sweden',
+    cityId: 'sweden',
     provider: 'Trafikverket',
     lat,
     lon,
     headingDeg: hasHeading ? extractedHeading : fallbackHeadingFromId(cameraId),
     headingConfidence: hasHeading ? 'high' : 'low',
-    // Stockholm road-cam priors (longer throw / higher mount than Austin city cams).
+    // Swedish road-cam priors (longer throw / higher mount than Austin city cams).
     pitchDeg: hasHeading ? -12 : -10,
     fovDeg: hasHeading ? 72 : 64,
     rangeM: hasHeading ? 600 : 480,
@@ -188,9 +192,10 @@ export function extractTrafikverketCameras(payload) {
 }
 
 /**
- * Fetch Trafikverket road cameras for Stockholm county (CountyNo 1).
+ * Fetch Trafikverket road cameras nationwide (Sweden).
  * Requires TRAFIKVERKET_API_KEY. Disabled with CCTV_TRAFIKVERKET_ENABLED=0.
- * Caps to CCTV_TRAFIKVERKET_MAX_SOURCES (default 200) nearest Stockholm centre.
+ * Caps to CCTV_TRAFIKVERKET_MAX_SOURCES (default 500) nearest Sweden metro anchors.
+ * Optional TRAFIKVERKET_COUNTY_NOS narrows scope.
  *
  * @returns {Promise<Array<object>>}
  */
@@ -227,14 +232,17 @@ export async function loadTrafikverketSourcesFromOpenData() {
     );
     const maxRaw = Number(
       process.env.CCTV_TRAFIKVERKET_MAX_SOURCES ||
+        DEFAULT_TRAFIKVERKET_MAX_CCTV ||
         DEFAULT_TRAFIKVERKET_MAX_SOURCES,
     );
     const maxCount = Number.isFinite(maxRaw)
-      ? Math.max(8, Math.min(600, Math.floor(maxRaw)))
-      : DEFAULT_TRAFIKVERKET_MAX_SOURCES;
-    const prioritized = prioritizeSources(unique, maxCount, [STOCKHOLM_CENTER]);
+      ? Math.max(8, Math.min(2000, Math.floor(maxRaw)))
+      : DEFAULT_TRAFIKVERKET_MAX_CCTV;
+    const prioritized = prioritizeSources(unique, maxCount, [
+      ...SWEDEN_METRO_ANCHORS,
+    ]);
     console.log(
-      `[CCTV] Loaded Trafikverket camera sources: ${unique.length} active for configured counties (using nearest ${prioritized.length})`,
+      `[CCTV] Loaded Trafikverket camera sources: ${unique.length} active nationwide/filter (using nearest ${prioritized.length} to Sweden metros)`,
     );
     return prioritized;
   } catch (error) {

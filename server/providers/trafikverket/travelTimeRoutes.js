@@ -1,6 +1,7 @@
-import { escapeXml, parseWktLineString, inBbox, capRows } from './wkt.js';
+import { escapeXml, parseWktLineString, inBbox } from './wkt.js';
 import { buildCountyNoFilterXml } from './county.js';
 import { extractTrafikinfoRows } from './client.js';
+import { prioritizeFeatures } from './geo.js';
 import {
   SWEDEN_BBOX,
   DEFAULT_TRAFIKVERKET_MAX_ROUTES,
@@ -110,7 +111,7 @@ export function travelTimeRoutesToGeoJson(
     const feature = normalizeTravelTimeRoute(row);
     if (feature) features.push(feature);
   }
-  const capped = capRows(features, maxFeatures);
+  const capped = prioritizeFeatures(features, maxFeatures);
   return {
     type: 'FeatureCollection',
     features: capped,
@@ -124,7 +125,7 @@ export function resolveMaxTravelTimeRoutes(env = process.env) {
     env.TRAFIKVERKET_TRAFFIC_MAX_ROUTES || DEFAULT_TRAFIKVERKET_MAX_ROUTES,
   );
   if (!Number.isFinite(raw)) return DEFAULT_TRAFIKVERKET_MAX_ROUTES;
-  return Math.max(8, Math.min(2000, Math.floor(raw)));
+  return Math.max(8, Math.min(5000, Math.floor(raw)));
 }
 
 export function isTrafikverketTrafficEnabled(env = process.env) {

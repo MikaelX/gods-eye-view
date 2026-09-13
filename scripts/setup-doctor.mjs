@@ -15,7 +15,7 @@ export const CREDENTIALS = Object.freeze([
   { name: 'OPENAI_API_KEY', label: 'OpenAI voice', keychain: [['openai-api', 'api-key']] },
   { name: 'AISSTREAM_API_KEY', label: 'AISStream vessels', keychain: [['aisstream-api', 'api-key']] },
   { name: 'FIRMS_MAP_KEY', label: 'NASA FIRMS fires', keychain: [['firms-map', 'map-key']] },
-  { name: 'TRAFIKVERKET_API_KEY', label: 'Trafikverket CCTV + SE street traffic', keychain: [] },
+  { name: 'TRAFIKVERKET_API_KEY', label: 'Trafikverket full Sweden pack (CCTV + traffic)', keychain: [] },
   { name: 'TOMTOM_API_KEY', label: 'TomTom traffic', keychain: [['tomtom-api', 'api-key']] },
   {
     name: 'OPENSKY_CLIENT_ID',
@@ -146,9 +146,9 @@ export function buildCapabilitySummary(credentials) {
     voice: configured('OPENAI_API_KEY') ? 'available' : 'off until an OpenAI key is added',
     vessels: configured('AISSTREAM_API_KEY') ? 'live AISStream feed' : 'off until an AISStream key is added',
     fires: configured('FIRMS_MAP_KEY') ? 'live NASA FIRMS feed' : 'off until a FIRMS key is added',
-    stockholmCctv: configured('TRAFIKVERKET_API_KEY') ? 'Trafikverket cameras + TravelTimeRoute/Situation (CountyNo via TRAFIKVERKET_COUNTY_NOS, default 1)' : 'off until a Trafikverket key is added',
+    stockholmCctv: configured('TRAFIKVERKET_API_KEY') ? 'Trafikverket nationwide Camera pack (optional TRAFIKVERKET_COUNTY_NOS narrow)' : 'off until a Trafikverket key is added',
     traffic: configured('TOMTOM_API_KEY') ? 'live TomTom flow (global)' : 'built-in traffic simulation (TomTom optional)',
-    trafikverketTraffic: configured('TRAFIKVERKET_API_KEY') ? 'Trafikverket TravelTimeRoute + Situation (Sweden)' : 'off until a Trafikverket key is added',
+    trafikverketTraffic: configured('TRAFIKVERKET_API_KEY') ? 'Trafikverket nationwide TravelTimeRoute + Situation + TrafficFlow (+ RoadCondition/Weather/ATK)' : 'off until a Trafikverket key is added',
     missions: configured('LL2_API_TOKEN')
       ? 'Launch Library 2 token allowance'
       : 'Launch Library 2 public access',

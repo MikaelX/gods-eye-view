@@ -36,7 +36,7 @@ export function createTrafikverketTrafficLayer({ source } = {}) {
     name: 'Sweden traffic (Trafikverket)',
     icon: '🇸🇪',
     source: 'Trafikverket',
-    updateInterval: 60_000,
+    updateInterval: 90_000,
 
     init(viewer) {
       if (_viewer) throw new Error('Trafikverket traffic already initialized');
@@ -84,6 +84,22 @@ export function createTrafikverketTrafficLayer({ source } = {}) {
           : [];
         const situationFeatures = Array.isArray(snap?.situations?.features)
           ? snap.situations.features
+          : [];
+        const flowFeatures = Array.isArray(snap?.trafficFlow?.features)
+          ? snap.trafficFlow.features
+          : [];
+        const roadFeatures = Array.isArray(snap?.roadConditions?.features)
+          ? snap.roadConditions.features
+          : [];
+        const weatherFeatures = Array.isArray(
+          snap?.weatherMeasurepoints?.features,
+        )
+          ? snap.weatherMeasurepoints.features
+          : [];
+        const atkFeatures = Array.isArray(
+          snap?.trafficSafetyCameras?.features,
+        )
+          ? snap.trafficSafetyCameras.features
           : [];
 
         const next = [];
@@ -177,6 +193,157 @@ export function createTrafikverketTrafficLayer({ source } = {}) {
           }
         }
 
+        for (const feature of flowFeatures) {
+          const lon = Number(feature?.geometry?.coordinates?.[0]);
+          const lat = Number(feature?.geometry?.coordinates?.[1]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+          const id = String(
+            feature.id || feature?.properties?.id || next.length,
+          );
+          const speed = Number(feature?.properties?.averageVehicleSpeed);
+          const color =
+            Number.isFinite(speed) && speed < 30
+              ? Cesium.Color.fromCssColorString('#e05252')
+              : Number.isFinite(speed) && speed < 70
+                ? Cesium.Color.fromCssColorString('#f0b23e')
+                : Cesium.Color.fromCssColorString('#2ecc71');
+          next.push(
+            new Cesium.Entity({
+              id: `tv-flow:${id}`,
+              name: `Flow ${id}`,
+              position: Cesium.Cartesian3.fromDegrees(lon, lat),
+              point: {
+                pixelSize: 6,
+                color: color.withAlpha(0.85),
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 1,
+                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              },
+              properties: {
+                kind: 'traffic-flow',
+                averageVehicleSpeed: feature?.properties?.averageVehicleSpeed,
+                vehicleFlowRate: feature?.properties?.vehicleFlowRate,
+              },
+            }),
+          );
+        }
+
+        for (const feature of roadFeatures) {
+          const geom = feature?.geometry;
+          const id = String(
+            feature.id || feature?.properties?.id || next.length,
+          );
+          if (geom?.type === 'Point') {
+            const lon = Number(geom.coordinates?.[0]);
+            const lat = Number(geom.coordinates?.[1]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+            next.push(
+              new Cesium.Entity({
+                id: `tv-road:${id}`,
+                name: feature?.properties?.conditionText || id,
+                position: Cesium.Cartesian3.fromDegrees(lon, lat),
+                point: {
+                  pixelSize: 8,
+                  color: Cesium.Color.fromCssColorString('#c0392b').withAlpha(
+                    0.9,
+                  ),
+                  outlineColor: Cesium.Color.WHITE,
+                  outlineWidth: 1,
+                  heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                  disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                },
+                properties: {
+                  kind: 'road-condition',
+                  conditionText: feature?.properties?.conditionText || '',
+                },
+              }),
+            );
+          } else if (geom?.type === 'LineString') {
+            const degrees = degreesArrayFromGeometry(geom);
+            if (!degrees) continue;
+            next.push(
+              new Cesium.Entity({
+                id: `tv-road:${id}`,
+                name: feature?.properties?.conditionText || id,
+                polyline: {
+                  positions: Cesium.Cartesian3.fromDegreesArray(degrees),
+                  width: 3,
+                  material: Cesium.Color.fromCssColorString('#c0392b').withAlpha(
+                    0.8,
+                  ),
+                  clampToGround: true,
+                },
+                properties: {
+                  kind: 'road-condition',
+                  conditionText: feature?.properties?.conditionText || '',
+                },
+              }),
+            );
+          }
+        }
+
+        for (const feature of weatherFeatures) {
+          const lon = Number(feature?.geometry?.coordinates?.[0]);
+          const lat = Number(feature?.geometry?.coordinates?.[1]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+          const id = String(
+            feature.id || feature?.properties?.id || next.length,
+          );
+          next.push(
+            new Cesium.Entity({
+              id: `tv-wx:${id}`,
+              name: feature?.properties?.name || id,
+              position: Cesium.Cartesian3.fromDegrees(lon, lat),
+              point: {
+                pixelSize: 7,
+                color: Cesium.Color.fromCssColorString('#3498db').withAlpha(0.9),
+                outlineColor: Cesium.Color.WHITE,
+                outlineWidth: 1,
+                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              },
+              properties: {
+                kind: 'weather-measurepoint',
+                name: feature?.properties?.name || '',
+                airTemperatureC: feature?.properties?.airTemperatureC,
+              },
+            }),
+          );
+        }
+
+        for (const feature of atkFeatures) {
+          const lon = Number(feature?.geometry?.coordinates?.[0]);
+          const lat = Number(feature?.geometry?.coordinates?.[1]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+          const id = String(
+            feature.id || feature?.properties?.id || next.length,
+          );
+          next.push(
+            new Cesium.Entity({
+              id: `tv-atk:${id}`,
+              name: feature?.properties?.label
+                ? `${feature.properties.label}: ${feature.properties.name || id}`
+                : feature?.properties?.name || `ATK ${id}`,
+              position: Cesium.Cartesian3.fromDegrees(lon, lat),
+              point: {
+                pixelSize: 9,
+                color: Cesium.Color.fromCssColorString('#9b59b6').withAlpha(0.95),
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 1,
+                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              },
+              properties: {
+                kind: 'traffic-safety-camera-atk',
+                label: 'ATK (speed camera)',
+                name: feature?.properties?.name || '',
+                roadNumber: feature?.properties?.roadNumber || '',
+              },
+            }),
+          );
+        }
+
         _dataSource.entities.removeAll();
         for (const entity of next) _dataSource.entities.add(entity);
         _count = next.length;
@@ -188,7 +355,7 @@ export function createTrafikverketTrafficLayer({ source } = {}) {
           );
         } else {
           console.log(
-            `[Data:TrafikverketTraffic] Updated: ${routeFeatures.length} routes, ${situationFeatures.length} situations`,
+            `[Data:TrafikverketTraffic] Updated: ${routeFeatures.length} routes, ${situationFeatures.length} situations, ${flowFeatures.length} flow, ${roadFeatures.length} road, ${weatherFeatures.length} weather, ${atkFeatures.length} ATK`,
           );
         }
         return true;

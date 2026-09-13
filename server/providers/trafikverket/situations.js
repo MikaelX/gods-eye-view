@@ -3,10 +3,10 @@ import {
   parseWktPoint,
   parseWktLineString,
   inBbox,
-  capRows,
 } from './wkt.js';
 import { buildCountyNoFilterXml } from './county.js';
 import { extractTrafikinfoRows } from './client.js';
+import { prioritizeFeatures } from './geo.js';
 import {
   SWEDEN_BBOX,
   DEFAULT_TRAFIKVERKET_MAX_SITUATIONS,
@@ -111,7 +111,7 @@ export function situationsToGeoJson(
       if (feature) features.push(feature);
     }
   }
-  const capped = capRows(features, maxFeatures);
+  const capped = prioritizeFeatures(features, maxFeatures);
   return {
     type: 'FeatureCollection',
     features: capped,
@@ -126,7 +126,7 @@ export function resolveMaxSituations(env = process.env) {
       DEFAULT_TRAFIKVERKET_MAX_SITUATIONS,
   );
   if (!Number.isFinite(raw)) return DEFAULT_TRAFIKVERKET_MAX_SITUATIONS;
-  return Math.max(8, Math.min(5000, Math.floor(raw)));
+  return Math.max(8, Math.min(8000, Math.floor(raw)));
 }
 
 export function isTrafikverketSituationEnabled(env = process.env) {

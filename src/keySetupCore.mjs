@@ -74,7 +74,7 @@ export const KEY_SETUP_KEYS = Object.freeze([
   Object.freeze({
     id: 'trafikverket',
     title: 'TRAFIKVERKET',
-    unlocks: 'Swedish road CCTV + street traffic (Stockholm default; more counties optional)',
+    unlocks: 'Swedish nationwide CCTV + street traffic pack (TravelTimeRoute, Situation, TrafficFlow, RoadCondition, Weather, ATK)',
     getUrl: 'https://api.trafikinfo.trafikverket.se/',
     envVars: Object.freeze(['TRAFIKVERKET_API_KEY']),
     tier: 'free',

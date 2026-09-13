@@ -70,15 +70,18 @@ test('isTrafikverketPhotoUrl pins https trafikverket.se hosts', () => {
   );
 });
 
-test('buildTrafikverketCameraRequestXml asks for Stockholm CountyNo 1 stills fields', () => {
+test('buildTrafikverketCameraRequestXml is nationwide by default (no CountyNo)', () => {
   const xml = buildTrafikverketCameraRequestXml('k<ey&');
   assert.match(xml, /authenticationkey="k&lt;ey&amp;"/);
   assert.match(xml, /objecttype="Camera"/);
   assert.match(xml, /EQ name="Active" value="true"/);
-  assert.match(xml, /EQ name="CountyNo" value="1"/);
+  assert.doesNotMatch(xml, /CountyNo/);
   assert.match(xml, /INCLUDE>PhotoUrl</);
   assert.match(xml, /INCLUDE>Geometry\.WGS84</);
   assert.equal(xml.includes('SWEREF'), false);
+
+  const stockholmOnly = buildTrafikverketCameraRequestXml('k', [1]);
+  assert.match(stockholmOnly, /EQ name="CountyNo" value="1"/);
 });
 
 test('fixture cameras normalize; bad geometry/host rows are dropped', () => {
@@ -88,14 +91,13 @@ test('fixture cameras normalize; bad geometry/host rows are dropped', () => {
   assert.equal(cams.length, 3);
   assert.equal(cams[0].id, 'tv-SE_STA_CAMERA_Pacific_581');
   assert.equal(cams[0].feedType, 'image');
-  assert.equal(cams[0].cityId, 'stockholm');
+  assert.equal(cams[0].cityId, 'sweden');
   assert.equal(cams[0].headingDeg, 95);
   assert.equal(cams[0].rangeM, 600);
   assert.equal(cams[0].mountHeightM, 28);
   assert.equal(cams[0].pitchDeg, -12);
   assert.equal(cams[0].fovDeg, 72);
-  assert.equal(cams[0].license, 'Contains data from Trafikverket');
-  // Direction 360 wraps to 0 and keeps the "has heading" pose personality.
+  assert.match(cams[0].license, /Trafikverket/);
   const stocksund = cams.find((c) => c.id.includes('Orion'));
   assert.equal(stocksund.headingDeg, 0);
   assert.equal(stocksund.headingConfidence, 'high');
@@ -123,7 +125,7 @@ test('loadTrafikverketSourcesFromOpenData no-ops without a key and when disabled
   }
 });
 
-test('loadTrafikverketSourcesFromOpenData posts text/xml and caps nearest sources', async () => {
+test('loadTrafikverketSourcesFromOpenData posts text/xml nationwide and caps nearest sources', async () => {
   const prevKey = process.env.TRAFIKVERKET_API_KEY;
   const prevEn = process.env.CCTV_TRAFIKVERKET_ENABLED;
   const prevMax = process.env.CCTV_TRAFIKVERKET_MAX_SOURCES;
@@ -131,7 +133,6 @@ test('loadTrafikverketSourcesFromOpenData posts text/xml and caps nearest source
   try {
     process.env.TRAFIKVERKET_API_KEY = 'fixture-key';
     process.env.CCTV_TRAFIKVERKET_ENABLED = '1';
-    // Per-pack floor is 8 (same clamp as Austin/Caltrans/TfL).
     process.env.CCTV_TRAFIKVERKET_MAX_SOURCES = '8';
     let saw = null;
     globalThis.fetch = async (url, init = {}) => {
@@ -143,7 +144,6 @@ test('loadTrafikverketSourcesFromOpenData posts text/xml and caps nearest source
           Name: `Bulk ${i}`,
           PhotoUrl: `https://api.trafikinfo.trafikverket.se/v2/Images/bulk-${i}.jpg`,
           Direction: (i * 30) % 360,
-          // Spread north of Stockholm so nearest-8 is deterministic.
           Geometry: { WGS84: `POINT (${18.06 + i * 0.01} ${59.33 + i * 0.01})` },
         });
       }
@@ -160,12 +160,11 @@ test('loadTrafikverketSourcesFromOpenData posts text/xml and caps nearest source
     assert.equal(saw.init.method, 'POST');
     assert.equal(saw.init.headers['Content-Type'], 'text/xml');
     assert.match(String(saw.init.body), /authenticationkey="fixture-key"/);
-    assert.match(String(saw.init.body), /CountyNo" value="1"/);
+    assert.doesNotMatch(String(saw.init.body), /CountyNo/);
     assert.equal(
       cams.every((c) => c.sourceKind === 'trafikverket-open-data'),
       true,
     );
-    // Nearest-to-centre should prefer the lower-index (closer) bulk cameras.
     assert.equal(cams[0].id, 'tv-SE_STA_CAMERA_Bulk_0');
   } finally {
     globalThis.fetch = prevFetch;

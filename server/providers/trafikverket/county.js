@@ -5,11 +5,15 @@ import {
 
 /**
  * Parse TRAFIKVERKET_COUNTY_NOS.
- * unset/empty → [1]; `*`/`all`/`national` → null (nationwide); `1,12` → ints
+ * - unset / empty / `*` / `all` / `national` → null (nationwide — the product default)
+ * - `1,12,14` → unique positive ints (optional narrow filter)
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {number[]|null} null = nationwide
  */
 export function parseTrafikverketCountyNos(env = process.env) {
   const raw = String(env[TRAFIKVERKET_COUNTY_NOS_ENV] ?? '').trim();
-  if (!raw) return [TRAFIKVERKET_STOCKHOLM_COUNTY_NO];
+  if (!raw) return null;
   const lower = raw.toLowerCase();
   if (lower === '*' || lower === 'all' || lower === 'national') return null;
   const nos = [];
@@ -23,16 +27,19 @@ export function parseTrafikverketCountyNos(env = process.env) {
     seen.add(county);
     nos.push(county);
   }
-  return nos.length ? nos : [TRAFIKVERKET_STOCKHOLM_COUNTY_NO];
+  // Empty garbage → nationwide (do not fall back to Stockholm-only).
+  return nos.length ? nos : null;
 }
 
-/** CountyNo FILTER fragment (no outer FILTER). Nationwide → ''. */
+/**
+ * CountyNo FILTER fragment (no outer FILTER). Nationwide → ''.
+ * @param {number[]|null} countyNos
+ * @returns {string}
+ */
 export function buildCountyNoFilterXml(countyNos) {
   if (countyNos == null) return '';
   const list = Array.isArray(countyNos) ? countyNos : [];
-  if (!list.length) {
-    return `<EQ name="CountyNo" value="${TRAFIKVERKET_STOCKHOLM_COUNTY_NO}" />`;
-  }
+  if (!list.length) return '';
   if (list.length === 1) {
     return `<EQ name="CountyNo" value="${list[0]}" />`;
   }
@@ -43,8 +50,14 @@ export function buildCountyNoFilterXml(countyNos) {
   );
 }
 
+/**
+ * @param {number[]|null} countyNos
+ * @returns {string}
+ */
 export function countyNosLabel(countyNos) {
-  if (countyNos == null) return 'nationwide';
+  if (countyNos == null || (Array.isArray(countyNos) && !countyNos.length)) {
+    return 'nationwide (Sweden)';
+  }
   if (
     countyNos.length === 1 &&
     countyNos[0] === TRAFIKVERKET_STOCKHOLM_COUNTY_NO

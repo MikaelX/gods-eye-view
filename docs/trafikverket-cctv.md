@@ -1,16 +1,20 @@
-# Trafikverket Sweden — CCTV + street traffic (optional pack)
+# Trafikverket Sweden — full national pack (optional)
 
 English first, Swedish second. This pack is **off** until you set a free
 `TRAFIKVERKET_API_KEY`. Austin / Caltrans / TfL and TomTom (optional global
 flow) keep working without it.
 
-**One key, two jobs.** The same Trafikinfo key unlocks Stockholm (and more of
-Sweden) **road cameras** plus **street traffic** overlays. TomTom stays optional
-BYOK if you want global congestion tiles elsewhere.
+**One key → full Swedish TRV stack.** The same Trafikinfo key unlocks nationwide
+road cameras plus street traffic, situations, flow sensors, road conditions,
+weather measurepoints, and ATK (speed-camera) POIs. TomTom stays optional BYOK
+for non-Sweden / global flow tiles.
 
-Stockholm (`CountyNo = 1`) is the **default pack**, not an API hard limit —
-national cameras, TravelTimeRoute segments, and Situation events exist for many
-counties.
+Default scope is **all of Sweden** (no `CountyNo` filter). Optionally narrow with
+`TRAFIKVERKET_COUNTY_NOS` (e.g. `1` for Stockholm-only). Stockholm screenshots in
+docs are examples of the national pack, not a product lock.
+
+Nationwide catalogs are large — GEV applies server cache, nearest-N / viewport
+caps, and poll intervals. Caps are documented below.
 
 ## English
 
@@ -18,28 +22,43 @@ counties.
 
 With a key, God's Eye View loads from the official Trafikverket Trafikinfo API:
 
-1. **Cameras** — Active road cameras as stills (`feedType: image`) via each
-   camera's `PhotoUrl`, proxied like the other CCTV packs.
-2. **TravelTimeRoute** (schema 1.5) — street segments with `Geometry.WGS84`
-   LINESTRING + `TrafficStatus` (freeflow / heavy / congested), colored on the
-   globe. Primary Swedish street layer.
+1. **Camera** — Active road cameras as stills (`feedType: image`) via each
+   camera's official `PhotoUrl`, proxied like the other CCTV packs. Nationwide by default.
+2. **TravelTimeRoute** (schema 1.5) — street/corridor segments with
+   `Geometry.WGS84` LINESTRING + `TrafficStatus` (freeflow / heavy / congested).
+   Primary Swedish traffic coloring.
 3. **Situation** (schema 1.6, **requires** `namespace="road.trafficinfo"`) —
    roadworks / messages / severity overlay (POINT or LINE).
+4. **TrafficFlow** (schema 1.4) — nationwide sensor points (speed / flow rate).
+5. **RoadCondition** — road condition messages (when present).
+6. **WeatherMeasurepoint** — weather stations (+ observation fields when present).
+7. **TrafficSafetyCamera** — ATK speed-camera POIs (labeled clearly vs CCTV).
 
-- Default county: Stockholm (`CountyNo = 1`). Override with
-  `TRAFIKVERKET_COUNTY_NOS=1,12,14` or `TRAFIKVERKET_COUNTY_NOS=*` (nationwide;
-  caps still apply).
-- Camera cap: nearest **200** (`CCTV_TRAFIKVERKET_MAX_SOURCES`).
-- Route cap: **250** (`TRAFIKVERKET_TRAFFIC_MAX_ROUTES`).
-- Situation cap: **400** (`TRAFIKVERKET_SITUATION_MAX_FEATURES`).
-- Disable cameras without removing the key: `CCTV_TRAFIKVERKET_ENABLED=0`.
-- Disable traffic overlays: `TRAFIKVERKET_TRAFFIC_ENABLED=0` /
-  `TRAFIKVERKET_SITUATION_ENABLED=0`.
+Skipped (non-existent / out of scope): WeatherStation, RoadConditionOverview,
+RoadGeometry and other parking/infra types.
+
+### Scope, caps, and toggles
+
+- **Default:** nationwide Sweden. Optional narrow:
+  `TRAFIKVERKET_COUNTY_NOS=1` or `1,12,14`. `*` / `all` / unset = nationwide.
+- Camera cap: nearest **500** to Sweden metro anchors
+  (`CCTV_TRAFIKVERKET_MAX_SOURCES`).
+- Route cap: **500** (`TRAFIKVERKET_TRAFFIC_MAX_ROUTES`).
+- Situation cap: **1500** (`TRAFIKVERKET_SITUATION_MAX_FEATURES`).
+- TrafficFlow cap: **1500** (`TRAFIKVERKET_TRAFFIC_FLOW_MAX_FEATURES`).
+- RoadCondition cap: **800** (`TRAFIKVERKET_ROAD_CONDITION_MAX_FEATURES`).
+- WeatherMeasurepoint cap: **400** (`TRAFIKVERKET_WEATHER_MAX_FEATURES`).
+- TrafficSafetyCamera (ATK) cap: **400**
+  (`TRAFIKVERKET_SAFETY_CAMERA_MAX_FEATURES`).
+- Server cache TTL ~90s; client poll ~90s. Optional `?bbox=` on traffic endpoints.
+- Disable cameras: `CCTV_TRAFIKVERKET_ENABLED=0`.
+- Disable layers: `TRAFIKVERKET_TRAFFIC_ENABLED=0`,
+  `TRAFIKVERKET_SITUATION_ENABLED=0`, `TRAFIKVERKET_TRAFFIC_FLOW_ENABLED=0`,
+  `TRAFIKVERKET_ROAD_CONDITION_ENABLED=0`, `TRAFIKVERKET_WEATHER_ENABLED=0`,
+  `TRAFIKVERKET_SAFETY_CAMERA_ENABLED=0`.
 - Placement uses `Geometry.WGS84` only — never SWEREF99TM.
 - Presence checks (no secrets): `GET /api/cctv/trafikverket-status`,
   `GET /api/trafikverket/status`.
-- **TrafficFlow** point sensors (~density/heatmap) are **not** shipped in this
-  pack yet (follow-up; `TRAFIKVERKET_TRAFFIC_FLOW_ENABLED` is reserved).
 
 ### Get a free API key
 
@@ -47,9 +66,8 @@ With a key, God's Eye View loads from the official Trafikverket Trafikinfo API:
    and create a free account.
 2. **Wait 30–60 minutes after registering** before creating an API key.
    New accounts often cannot create keys until the portal finishes user sync.
-   If the portal shows errors like **"User id not found"** (or similar
-   "unsynced user" messages), wait and retry **once** — do **not** spam-create
-   keys or open duplicate accounts.
+   If the portal shows **"User id not found"** (or similar), wait and retry
+   **once** — do **not** spam-create keys or open duplicate accounts.
 3. Create an API key in the portal.
 4. Put it in `.env` as `TRAFIKVERKET_API_KEY=...` **or** paste it in-app via
    **POWER UP → TRAFIKVERKET**.
@@ -85,28 +103,40 @@ want live flow tiles for cities outside Sweden.
 
 Med nyckel laddar God's Eye View från Trafikverkets officiella Trafikinfo-API:
 
-1. **Kameror** — aktiva trafikkameror som stillbilder (`feedType: image`) via
-   varje kameras `PhotoUrl`, proxade som övriga CCTV-paket.
-2. **TravelTimeRoute** (schema 1.5) — vägsegment med `Geometry.WGS84`
-   LINESTRING + `TrafficStatus` (freeflow / heavy / congested), färgade på
-   globen. Primärt svenskt gatulager.
+1. **Camera** — aktiva trafikkameror som stillbilder (`feedType: image`) via
+   varje kameras `PhotoUrl`. Hela Sverige som standard.
+2. **TravelTimeRoute** (schema 1.5) — väg-/korridorsegment med
+   `Geometry.WGS84` LINESTRING + `TrafficStatus`. Primär svensk trafikfärgning.
 3. **Situation** (schema 1.6, **kräver** `namespace="road.trafficinfo"`) —
-   vägarbeten / meddelanden / allvarlighetsgrad (POINT eller LINE).
+   vägarbeten / meddelanden / allvarlighetsgrad.
+4. **TrafficFlow** (schema 1.4) — nationella sensorpunkter (hastighet / flöde).
+5. **RoadCondition** — vägförhållanden (när data finns).
+6. **WeatherMeasurepoint** — väderstationer (+ observationer när de finns).
+7. **TrafficSafetyCamera** — ATK-fartkameror (tydligt märkta vs CCTV).
 
-- Standardlän: Stockholm (`CountyNo = 1`). Ändra med
-  `TRAFIKVERKET_COUNTY_NOS=1,12,14` eller `TRAFIKVERKET_COUNTY_NOS=*` (hela
-  landet; tak gäller fortfarande).
-- Kameratak: närmaste **200** (`CCTV_TRAFIKVERKET_MAX_SOURCES`).
-- Rutt-tak: **250** (`TRAFIKVERKET_TRAFFIC_MAX_ROUTES`).
-- Situation-tak: **400** (`TRAFIKVERKET_SITUATION_MAX_FEATURES`).
-- Stäng av kameror utan att ta bort nyckeln: `CCTV_TRAFIKVERKET_ENABLED=0`.
-- Stäng av trafiklager: `TRAFIKVERKET_TRAFFIC_ENABLED=0` /
-  `TRAFIKVERKET_SITUATION_ENABLED=0`.
+Hoppas över: WeatherStation, RoadConditionOverview, RoadGeometry m.m.
+
+### Omfattning, tak och reglage
+
+- **Standard:** hela Sverige. Valfri begräsning:
+  `TRAFIKVERKET_COUNTY_NOS=1` eller `1,12,14`. `*` / `all` / osatt = nationellt.
+- Kameratak: närmaste **500** till svenska metro-ankare
+  (`CCTV_TRAFIKVERKET_MAX_SOURCES`).
+- Rutt-tak: **500** (`TRAFIKVERKET_TRAFFIC_MAX_ROUTES`).
+- Situation-tak: **1500** (`TRAFIKVERKET_SITUATION_MAX_FEATURES`).
+- TrafficFlow-tak: **1500** (`TRAFIKVERKET_TRAFFIC_FLOW_MAX_FEATURES`).
+- RoadCondition-tak: **800** (`TRAFIKVERKET_ROAD_CONDITION_MAX_FEATURES`).
+- WeatherMeasurepoint-tak: **400** (`TRAFIKVERKET_WEATHER_MAX_FEATURES`).
+- ATK-tak: **400** (`TRAFIKVERKET_SAFETY_CAMERA_MAX_FEATURES`).
+- Servercache ~90 s; klientpoll ~90 s. Valfri `?bbox=` på trafik-endpoints.
+- Stäng av kameror: `CCTV_TRAFIKVERKET_ENABLED=0`.
+- Stäng av lager: `TRAFIKVERKET_TRAFFIC_ENABLED=0`,
+  `TRAFIKVERKET_SITUATION_ENABLED=0`, `TRAFIKVERKET_TRAFFIC_FLOW_ENABLED=0`,
+  `TRAFIKVERKET_ROAD_CONDITION_ENABLED=0`, `TRAFIKVERKET_WEATHER_ENABLED=0`,
+  `TRAFIKVERKET_SAFETY_CAMERA_ENABLED=0`.
 - Placering använder endast `Geometry.WGS84` — aldrig SWEREF99TM.
 - Status utan hemligheter: `GET /api/cctv/trafikverket-status`,
   `GET /api/trafikverket/status`.
-- **TrafficFlow**-punktsensorer (densitet/heatmap) levereras **inte** i detta
-  paket ännu (uppföljning; `TRAFIKVERKET_TRAFFIC_FLOW_ENABLED` är reserverad).
 
 ### Skapa gratis API-nyckel
 
@@ -114,9 +144,8 @@ Med nyckel laddar God's Eye View från Trafikverkets officiella Trafikinfo-API:
    och skapa ett gratis konto.
 2. **Vänta 30–60 minuter efter registrering** innan du skapar en API-nyckel.
    Nya konton kan ofta inte skapa nycklar förrän portalen synkat användaren.
-   Om portalen visar fel som **"User id not found"** (eller liknande om
-   osynkad användare), vänta och försök **en gång till** — skapa **inte**
-   många nycklar eller dubbla konton.
+   Om portalen visar **"User id not found"** (eller liknande), vänta och försök
+   **en gång till** — skapa **inte** många nycklar eller dubbla konton.
 3. Skapa en API-nyckel i portalen.
 4. Lägg den i `.env` som `TRAFIKVERKET_API_KEY=...` **eller** klistra in den
    i appen via **POWER UP → TRAFIKVERKET**.
