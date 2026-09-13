@@ -1,7 +1,7 @@
 import { parseTrafikverketCountyNos } from './trafikverket/county.js';
 import { postTrafikinfo } from './trafikverket/client.js';
 import { trafikverketTrafficStatus } from './trafikverket/status.js';
-import { parseBboxParam, filterFeaturesByBbox } from './trafikverket/geo.js';
+import { clipFeatureCollectionToBbox } from './trafikverket/geo.js';
 import {
   buildTravelTimeRouteRequestXml,
   travelTimeRoutesToGeoJson,
@@ -41,20 +41,14 @@ import {
 import { TRAFIKVERKET_CACHE_TTL_MS } from './trafikverket/constants.js';
 
 /**
- * Apply optional bbox query filter to a FeatureCollection body.
+ * Clip cached national FeatureCollection to the client viewport bbox (+ pad).
+ * ATK / POI-style endpoints also nearest-N to the viewport center.
  * @param {object} body
  * @param {URL} url
+ * @param {{nearestN?:number}} [opts]
  */
-function maybeBbox(body, url) {
-  const bbox = parseBboxParam(url.searchParams.get('bbox'));
-  if (!bbox || !body?.features) return body;
-  const features = filterFeaturesByBbox(body.features, bbox);
-  return {
-    ...body,
-    features,
-    bboxFiltered: true,
-    bboxTotalBefore: body.features.length,
-  };
+function maybeBbox(body, url, opts = {}) {
+  return clipFeatureCollectionToBbox(body, url.searchParams.get('bbox'), opts);
 }
 
 /**
@@ -173,7 +167,7 @@ export function trafikverketProxy() {
             buildTrafficFlowRequestXml,
             (payload) => trafficFlowToGeoJson(payload, max),
           );
-          sendJson(res, 200, maybeBbox(body, url));
+          sendJson(res, 200, maybeBbox(body, url, { nearestN: max }));
           return;
         }
 
@@ -211,7 +205,7 @@ export function trafikverketProxy() {
             buildWeatherMeasurepointRequestXml,
             (payload) => weatherMeasurepointsToGeoJson(payload, max),
           );
-          sendJson(res, 200, maybeBbox(body, url));
+          sendJson(res, 200, maybeBbox(body, url, { nearestN: max }));
           return;
         }
 
@@ -230,7 +224,8 @@ export function trafikverketProxy() {
             buildTrafficSafetyCameraRequestXml,
             (payload) => trafficSafetyCamerasToGeoJson(payload, max),
           );
-          sendJson(res, 200, maybeBbox(body, url));
+          // ATK = CCTV-style POIs: viewport clip + nearest-N to view center.
+          sendJson(res, 200, maybeBbox(body, url, { nearestN: max }));
           return;
         }
 
@@ -290,4 +285,4 @@ export {
   countyNosLabel,
 } from './trafikverket/county.js';
 export { escapeXml, parseWktPoint, parseWktLineString } from './trafikverket/wkt.js';
-export { prioritizeFeatures, parseBboxParam } from './trafikverket/geo.js';
+export { prioritizeFeatures, parseBboxParam, padBbox, clipFeatureCollectionToBbox } from './trafikverket/geo.js';

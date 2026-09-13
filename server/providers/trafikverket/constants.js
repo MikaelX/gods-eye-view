@@ -22,7 +22,11 @@ export const DEFAULT_TRAFIKVERKET_MAX_SAFETY_CAMERAS = 400;
 export const DEFAULT_TRAFIKVERKET_MAX_CCTV = 500;
 
 export const TRAFIKVERKET_FETCH_TIMEOUT_MS = 30_000;
-export const TRAFIKVERKET_CACHE_TTL_MS = 90_000;
+/** Align with TomTom tile cache (~120s) — national TRV catalog reuse. */
+export const TRAFIKVERKET_CACHE_TTL_MS = 120_000;
+
+/** Pad applied when clipping responses to a client viewport bbox. */
+export const TRAFIKVERKET_BBOX_PAD_DEG = 0.02;
 
 /** Sweden rough WGS84 box — rejects wild WKT mis-parses. */
 export const SWEDEN_BBOX = Object.freeze({

@@ -7,6 +7,15 @@ import {
 } from './model.js';
 export * from './model.js';
 export { createTrafikverketTrafficSource } from './source.js';
+export {
+  viewerViewportBbox,
+  padBbox,
+  clampBboxAroundCenter,
+  bboxQueryValue,
+  TRAFIKVERKET_BBOX_PAD_DEG,
+  TRAFIKVERKET_BBOX_MAX_SPAN_DEG,
+} from './viewport.js';
+import { viewerViewportBbox } from './viewport.js';
 
 function rgbaToColor(rgba) {
   const [r, g, b, a] = rgba;
@@ -14,8 +23,9 @@ function rgbaToColor(rgba) {
 }
 
 /**
- * Swedish street traffic overlay: TravelTimeRoute segments + Situation markers.
- * Independent of TomTom (optional global BYOK). Key never reaches the browser.
+ * Swedish street traffic overlay: TravelTimeRoute + Situation + TrafficFlow
+ * (viewport-scoped like TomTom). Independent of TomTom BYOK. Key never reaches
+ * the browser.
  */
 export function createTrafikverketTrafficLayer({ source } = {}) {
   if (typeof source?.getSnapshot !== 'function') {
@@ -69,12 +79,22 @@ export function createTrafikverketTrafficLayer({ source } = {}) {
     },
 
     async update() {
-      if (!_enabled || !_dataSource) return false;
+      if (!_enabled || !_dataSource || !_viewer) return false;
       _request?.abort();
       const request = new AbortController();
       _request = request;
       try {
-        const snap = await source.getSnapshot({ signal: request.signal });
+        // TomTom-style: only request the clamped current viewport, never all Sweden.
+        const bbox = viewerViewportBbox(_viewer, { Cesium });
+        if (!bbox) {
+          _dataSource.entities.removeAll();
+          _count = 0;
+          return false;
+        }
+        const snap = await source.getSnapshot({
+          signal: request.signal,
+          bbox,
+        });
         if (request.signal.aborted || _request !== request || !_enabled) {
           return false;
         }

@@ -13,8 +13,11 @@ Default scope is **all of Sweden** (no `CountyNo` filter). Optionally narrow wit
 `TRAFIKVERKET_COUNTY_NOS` (e.g. `1` for Stockholm-only). Stockholm screenshots in
 docs are examples of the national pack, not a product lock.
 
-Nationwide catalogs are large — GEV applies server cache, nearest-N / viewport
-caps, and poll intervals. Caps are documented below.
+Nationwide catalogs are large — GEV does **not** fetch/render all of Sweden at
+once. Traffic uses TomTom-style **viewport bbox** requests (clamp + pad +
+server clip, ~120s cache / ~90s poll). Cameras / ATK use the CCTV pattern:
+Sweden-wide cached catalog, **nearest-N** registered, `PhotoUrl` only on
+activation. Caps are documented below.
 
 ## English
 
@@ -50,15 +53,43 @@ RoadGeometry and other parking/infra types.
 - WeatherMeasurepoint cap: **400** (`TRAFIKVERKET_WEATHER_MAX_FEATURES`).
 - TrafficSafetyCamera (ATK) cap: **400**
   (`TRAFIKVERKET_SAFETY_CAMERA_MAX_FEATURES`).
-- Server cache TTL ~90s; client poll ~90s. Optional `?bbox=` on traffic endpoints.
+- Placement uses `Geometry.WGS84` only — never SWEREF99TM.
+- Presence checks (no secrets): `GET /api/cctv/trafikverket-status`,
+  `GET /api/trafikverket/status`.
 - Disable cameras: `CCTV_TRAFIKVERKET_ENABLED=0`.
 - Disable layers: `TRAFIKVERKET_TRAFFIC_ENABLED=0`,
   `TRAFIKVERKET_SITUATION_ENABLED=0`, `TRAFIKVERKET_TRAFFIC_FLOW_ENABLED=0`,
   `TRAFIKVERKET_ROAD_CONDITION_ENABLED=0`, `TRAFIKVERKET_WEATHER_ENABLED=0`,
   `TRAFIKVERKET_SAFETY_CAMERA_ENABLED=0`.
-- Placement uses `Geometry.WGS84` only — never SWEREF99TM.
-- Presence checks (no secrets): `GET /api/cctv/trafikverket-status`,
-  `GET /api/trafikverket/status`.
+
+### Performance (viewport + caps — not CountyNo=1)
+
+Nationwide data is **available** by default; GEV never tries to render/fetch
+all of Sweden at once. Patterns mirror existing packs:
+
+**TomTom model — TravelTimeRoute / Situation / TrafficFlow** (also used for
+RoadCondition / Weather clips):
+
+- Client requests only the **current viewport** (`?bbox=west,south,east,north`).
+- Viewport is recentered on the camera look-at, **clamped** (~0.1° span) and
+  **padded** (~0.02°) — similar spirit to TomTom z8–16 tiles with ~0.05° fetch
+  bounds (typically 1–4 tiles at z12).
+- Server keeps a Sweden-wide catalog in memory (~**120s** TTL, like TomTom’s
+  ~120s tile cache) and **clips** each response to the padded bbox (plus
+  nearest-N to view center for dense point layers).
+- Client poll ~**90s**. Country-scale / space views skip the fetch (empty
+  overlay) instead of downloading the national set.
+
+**CCTV model — Camera / ATK POIs:**
+
+- Catalog may be Sweden-wide and **cached server-side**.
+- Only **nearest-N** sources are registered toward metro / view anchors
+  (`prioritizeSources` / `CCTV_TRAFIKVERKET_MAX_SOURCES` / ATK max).
+- Camera `PhotoUrl` / frame bytes are fetched **on activation only**, never for
+  every camera in the catalog.
+
+Defaults stay Sweden-wide; performance comes from viewport + caps, not a hard
+`CountyNo=1` lock. Optional `TRAFIKVERKET_COUNTY_NOS` only narrows when set.
 
 ### Get a free API key
 
@@ -116,6 +147,12 @@ Med nyckel laddar God's Eye View från Trafikverkets officiella Trafikinfo-API:
 
 Hoppas över: WeatherStation, RoadConditionOverview, RoadGeometry m.m.
 
+Nationella kataloger är stora — GEV hämtar/ritar **inte** hela Sverige på
+en gång. Trafik använder TomTom-liknande **viewport-bbox** (clamp + pad +
+serverklipp, ~120 s cache / ~90 s poll). Kameror / ATK följer CCTV-mönstret:
+Sverige-katalog i cache, **närmaste-N** registrerade, `PhotoUrl` bara vid
+aktivering.
+
 ### Omfattning, tak och reglage
 
 - **Standard:** hela Sverige. Valfri begräsning:
@@ -128,15 +165,43 @@ Hoppas över: WeatherStation, RoadConditionOverview, RoadGeometry m.m.
 - RoadCondition-tak: **800** (`TRAFIKVERKET_ROAD_CONDITION_MAX_FEATURES`).
 - WeatherMeasurepoint-tak: **400** (`TRAFIKVERKET_WEATHER_MAX_FEATURES`).
 - ATK-tak: **400** (`TRAFIKVERKET_SAFETY_CAMERA_MAX_FEATURES`).
-- Servercache ~90 s; klientpoll ~90 s. Valfri `?bbox=` på trafik-endpoints.
+- Placering använder endast `Geometry.WGS84` — aldrig SWEREF99TM.
+- Status utan hemligheter: `GET /api/cctv/trafikverket-status`,
+  `GET /api/trafikverket/status`.
 - Stäng av kameror: `CCTV_TRAFIKVERKET_ENABLED=0`.
 - Stäng av lager: `TRAFIKVERKET_TRAFFIC_ENABLED=0`,
   `TRAFIKVERKET_SITUATION_ENABLED=0`, `TRAFIKVERKET_TRAFFIC_FLOW_ENABLED=0`,
   `TRAFIKVERKET_ROAD_CONDITION_ENABLED=0`, `TRAFIKVERKET_WEATHER_ENABLED=0`,
   `TRAFIKVERKET_SAFETY_CAMERA_ENABLED=0`.
-- Placering använder endast `Geometry.WGS84` — aldrig SWEREF99TM.
-- Status utan hemligheter: `GET /api/cctv/trafikverket-status`,
-  `GET /api/trafikverket/status`.
+
+### Prestanda (viewport + tak — inte CountyNo=1)
+
+Nationell data är **tillgänglig** som standard; GEV försöker aldrig hämta/rita
+hela Sverige på en gång. Mönster speglar befintliga paket:
+
+**TomTom-modell — TravelTimeRoute / Situation / TrafficFlow** (även klipp för
+RoadCondition / Weather):
+
+- Klienten begär bara **aktuell viewport** (`?bbox=west,south,east,north`).
+- Viewport centreras på kamerans look-at, **begränsas** (~0,1° spännvidd) och
+  **paddas** (~0,02°) — samma idé som TomTom z8–16-plattor med ~0,05°
+  hämtfönster (typiskt 1–4 plattor vid z12).
+- Servern håller en Sverige-katalog i minnet (~**120 s** TTL, som TomToms
+  ~120 s plattcache) och **klipper** varje svar till paddad bbox (plus
+  närmaste-N till vycentrum för täta punktlager).
+- Klientpoll ~**90 s**. Lands-/rymdvy hoppar över hämtning (tom overlay) i stället
+  för att ladda hela landet.
+
+**CCTV-modell — Camera / ATK-POI:**
+
+- Katalogen kan vara Sverige-vid och **cachas server-side**.
+- Bara **närmaste-N** registreras mot metro-/vyankare
+  (`prioritizeSources` / `CCTV_TRAFIKVERKET_MAX_SOURCES` / ATK-tak).
+- Kamerans `PhotoUrl` / bildbytes hämtas **bara vid aktivering**, aldrig för
+  alla kameror i katalogen.
+
+Standard är hela Sverige; prestanda kommer från viewport + tak, inte låst
+`CountyNo=1`. Valfri `TRAFIKVERKET_COUNTY_NOS` begränar bara när den sätts.
 
 ### Skapa gratis API-nyckel
 

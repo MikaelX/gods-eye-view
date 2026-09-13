@@ -267,3 +267,66 @@ test('CCTV camera XML accepts multi-county and nationwide', async () => {
   assert.doesNotMatch(nation, /CountyNo/);
   assert.match(nation, /Active" value="true"/);
 });
+
+test('viewport clamp/pad keeps country-scale views tiny (TomTom-style)', async () => {
+  const {
+    clampBboxAroundCenter,
+    padBbox,
+    bboxQueryValue,
+  } = await import('../layers/trafikverket-traffic/viewport.js');
+  const sweden = { west: 10.5, south: 54.8, east: 24.5, north: 69.2 };
+  const clamped = clampBboxAroundCenter(sweden, { lat: 59.33, lon: 18.06 });
+  assert.ok(clamped.east - clamped.west <= 0.1 + 1e-9);
+  assert.ok(clamped.north - clamped.south <= 0.1 + 1e-9);
+  const padded = padBbox(clamped, 0.02);
+  assert.ok(padded.west < clamped.west);
+  assert.match(bboxQueryValue(padded), /^[\d.,-]+$/);
+});
+
+test('server clips FeatureCollection to padded bbox + nearest-N', async () => {
+  const { clipFeatureCollectionToBbox } = await import(
+    '../../server/providers/trafikverket/geo.js'
+  );
+  const body = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [18.06, 59.33] },
+        properties: { id: 'near' },
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [11.97, 57.71] },
+        properties: { id: 'far' },
+      },
+    ],
+  };
+  const clipped = clipFeatureCollectionToBbox(body, '18.0,59.3,18.1,59.4', {
+    nearestN: 5,
+  });
+  assert.equal(clipped.features.length, 1);
+  assert.equal(clipped.features[0].properties.id, 'near');
+  assert.equal(clipped.bboxFiltered, true);
+});
+
+test('traffic source appends viewport bbox to all pack URLs', async () => {
+  const { createTrafikverketTrafficSource } = await import(
+    '../layers/trafikverket-traffic/source.js'
+  );
+  const urls = [];
+  const source = createTrafikverketTrafficSource({
+    fetchImpl: async (url) => {
+      urls.push(String(url));
+      return { status: 503, ok: false, async json() { return {}; } };
+    },
+  });
+  await source.getSnapshot({
+    bbox: { west: 18, south: 59, east: 18.1, north: 59.1 },
+  });
+  assert.equal(urls.length, 6);
+  assert.equal(
+    urls.every((u) => u.includes('bbox=18,59,18.1,59.1')),
+    true,
+  );
+});
