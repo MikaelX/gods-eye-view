@@ -137,7 +137,7 @@ const GEV_REALTIME_TOOLS = [
         layerId: {
           type: 'string',
           description:
-            'Common-name mapping for the non-obvious ids: space mission(s) → rocket-launches; fires/wildfires/active fires → local-firms (NASA FIRMS); ships/vessels/boats → ais-live-vessels; undersea/submarine cables → telegeography-submarine-cables; datacenters → local-datacenters; dams → local-dams; bikes/bike share → bikeshare; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio.',
+            'Common-name mapping for the non-obvious ids: space mission(s) → rocket-launches; fires/wildfires/active fires → local-firms (NASA FIRMS); ships/vessels/boats → ais-live-vessels; undersea/submarine cables → telegeography-submarine-cables; datacenters → local-datacenters; dams → local-dams; bikes/bike share → bikeshare; street traffic/congestion → traffic (global/sim) or trafikverket-traffic (Sweden, Trafikverket); traffic cameras → cctv; internet radio/stations → radio.',
           enum: [
             'flights',
             'military',
@@ -145,6 +145,7 @@ const GEV_REALTIME_TOOLS = [
             'satellites',
             'rocket-launches',
             'traffic',
+            'trafikverket-traffic',
             'cctv',
             'radio',
             'bikeshare',
@@ -177,6 +178,7 @@ const GEV_REALTIME_TOOLS = [
             'earthquakes',
             'satellites',
             'traffic',
+            'trafikverket-traffic',
             'cctv',
             'radio',
             'bikeshare',

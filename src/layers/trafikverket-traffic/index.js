@@ -1,0 +1,233 @@
+import * as Cesium from 'cesium';
+import {
+  TRAFIKVERKET_TRAFFIC_LAYER_ID,
+  TRAFIKVERKET_BUCKET_RGBA,
+  degreesArrayFromGeometry,
+  situationPointRadiusM,
+} from './model.js';
+export * from './model.js';
+export { createTrafikverketTrafficSource } from './source.js';
+
+function rgbaToColor(rgba) {
+  const [r, g, b, a] = rgba;
+  return Cesium.Color.fromBytes(r, g, b, Math.round((a ?? 1) * 255));
+}
+
+/**
+ * Swedish street traffic overlay: TravelTimeRoute segments + Situation markers.
+ * Independent of TomTom (optional global BYOK). Key never reaches the browser.
+ */
+export function createTrafikverketTrafficLayer({ source } = {}) {
+  if (typeof source?.getSnapshot !== 'function') {
+    throw new TypeError('Trafikverket traffic requires a snapshot source');
+  }
+
+  let _viewer = null;
+  let _request = null;
+  let _dataSource = null;
+  let _count = 0;
+  let _lastUpdate = null;
+  let _lastError = null;
+  let _enabled = false;
+  let _configured = false;
+
+  const layer = {
+    id: TRAFIKVERKET_TRAFFIC_LAYER_ID,
+    name: 'Sweden traffic (Trafikverket)',
+    icon: '🇸🇪',
+    source: 'Trafikverket',
+    updateInterval: 60_000,
+
+    init(viewer) {
+      if (_viewer) throw new Error('Trafikverket traffic already initialized');
+      _viewer = viewer;
+      _dataSource = new Cesium.CustomDataSource('trafikverket-traffic');
+      _dataSource.show = false;
+      viewer.dataSources.add(_dataSource);
+      _count = 0;
+      _lastUpdate = null;
+      _lastError = null;
+      _enabled = false;
+      _configured = false;
+      console.log('[Data:TrafikverketTraffic] Initialized');
+    },
+
+    enable() {
+      _enabled = true;
+      if (_dataSource) _dataSource.show = true;
+    },
+
+    disable() {
+      _request?.abort();
+      _request = null;
+      _enabled = false;
+      if (_dataSource) {
+        _dataSource.show = false;
+        _dataSource.entities.removeAll();
+      }
+      _count = 0;
+    },
+
+    async update() {
+      if (!_enabled || !_dataSource) return false;
+      _request?.abort();
+      const request = new AbortController();
+      _request = request;
+      try {
+        const snap = await source.getSnapshot({ signal: request.signal });
+        if (request.signal.aborted || _request !== request || !_enabled) {
+          return false;
+        }
+        _configured = snap?.configured !== false;
+        const routeFeatures = Array.isArray(snap?.routes?.features)
+          ? snap.routes.features
+          : [];
+        const situationFeatures = Array.isArray(snap?.situations?.features)
+          ? snap.situations.features
+          : [];
+
+        const next = [];
+        for (const feature of routeFeatures) {
+          const degrees = degreesArrayFromGeometry(feature?.geometry);
+          if (!degrees) continue;
+          const bucket = feature?.properties?.bucket || 'free';
+          const rgba =
+            TRAFIKVERKET_BUCKET_RGBA[bucket] || TRAFIKVERKET_BUCKET_RGBA.free;
+          const id = String(
+            feature.id || feature?.properties?.id || next.length,
+          );
+          next.push(
+            new Cesium.Entity({
+              id: `tv-route:${id}`,
+              name: feature?.properties?.name || id,
+              polyline: {
+                positions: Cesium.Cartesian3.fromDegreesArray(degrees),
+                width: bucket === 'jam' ? 5 : bucket === 'slow' ? 4 : 3,
+                material: rgbaToColor(rgba),
+                clampToGround: true,
+              },
+              properties: {
+                kind: 'travel-time-route',
+                trafficStatus: feature?.properties?.trafficStatus || '',
+                bucket,
+                name: feature?.properties?.name || '',
+              },
+            }),
+          );
+        }
+
+        for (const feature of situationFeatures) {
+          const geom = feature?.geometry;
+          const id = String(
+            feature.id || feature?.properties?.id || next.length,
+          );
+          if (geom?.type === 'Point') {
+            const lon = Number(geom.coordinates?.[0]);
+            const lat = Number(geom.coordinates?.[1]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+            const radius = situationPointRadiusM(
+              feature?.properties?.severityCode,
+            );
+            next.push(
+              new Cesium.Entity({
+                id: `tv-sit:${id}`,
+                name: feature?.properties?.header || id,
+                position: Cesium.Cartesian3.fromDegrees(lon, lat),
+                point: {
+                  pixelSize: Math.max(8, Math.min(18, radius / 8)),
+                  color: Cesium.Color.fromCssColorString('#f0b23e').withAlpha(
+                    0.95,
+                  ),
+                  outlineColor: Cesium.Color.BLACK,
+                  outlineWidth: 1,
+                  heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                  disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                },
+                properties: {
+                  kind: 'situation',
+                  header: feature?.properties?.header || '',
+                  message: feature?.properties?.message || '',
+                  severityCode: feature?.properties?.severityCode ?? null,
+                },
+              }),
+            );
+          } else if (geom?.type === 'LineString') {
+            const degrees = degreesArrayFromGeometry(geom);
+            if (!degrees) continue;
+            next.push(
+              new Cesium.Entity({
+                id: `tv-sit:${id}`,
+                name: feature?.properties?.header || id,
+                polyline: {
+                  positions: Cesium.Cartesian3.fromDegreesArray(degrees),
+                  width: 3,
+                  material: Cesium.Color.fromCssColorString('#f0b23e').withAlpha(
+                    0.85,
+                  ),
+                  clampToGround: true,
+                },
+                properties: {
+                  kind: 'situation',
+                  header: feature?.properties?.header || '',
+                  message: feature?.properties?.message || '',
+                  severityCode: feature?.properties?.severityCode ?? null,
+                },
+              }),
+            );
+          }
+        }
+
+        _dataSource.entities.removeAll();
+        for (const entity of next) _dataSource.entities.add(entity);
+        _count = next.length;
+        _lastUpdate = Date.now();
+        _lastError = null;
+        if (!_configured) {
+          console.log(
+            '[Data:TrafikverketTraffic] No TRAFIKVERKET_API_KEY — layer idle',
+          );
+        } else {
+          console.log(
+            `[Data:TrafikverketTraffic] Updated: ${routeFeatures.length} routes, ${situationFeatures.length} situations`,
+          );
+        }
+        return true;
+      } catch (e) {
+        if (request.signal.aborted || _request !== request || !_enabled) {
+          return false;
+        }
+        console.warn('[Data:TrafikverketTraffic] Fetch error:', e);
+        _lastError = e?.message || 'Trafikverket traffic unavailable';
+        return false;
+      } finally {
+        if (_request === request) _request = null;
+      }
+    },
+
+    getStats() {
+      return {
+        count: _count,
+        lastUpdate: _lastUpdate,
+        lastError: _lastError,
+        configured: _configured,
+        available: _configured,
+      };
+    },
+
+    destroy(viewer = _viewer) {
+      _request?.abort();
+      _request = null;
+      _enabled = false;
+      if (_dataSource && viewer) {
+        viewer.dataSources.remove(_dataSource, true);
+      }
+      _dataSource = null;
+      _viewer = null;
+      _count = 0;
+      _lastUpdate = null;
+      _lastError = null;
+    },
+  };
+
+  return layer;
+}

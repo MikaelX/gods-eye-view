@@ -1,0 +1,44 @@
+{
+  "RESPONSE": {
+    "RESULT": [
+      {
+        "Situation": [
+          {
+            "Id": "sit-1",
+            "Deviation": [
+              {
+                "Id": "dev-1",
+                "Header": "Roadworks Bergshamra",
+                "Message": "Lane closure on E4",
+                "SeverityCode": 3,
+                "SeverityText": "Medium impact",
+                "IconId": "roadwork",
+                "CountyNo": [1],
+                "Geometry": { "WGS84": "POINT (18.045 59.375)" }
+              },
+              {
+                "Id": "dev-2",
+                "Header": "Queue Danderyd",
+                "Message": "Slow traffic",
+                "SeverityCode": 4,
+                "SeverityText": "High impact",
+                "CountyNo": [1],
+                "Geometry": {
+                  "WGS84": "LINESTRING (18.05 59.40, 18.06 59.395)"
+                }
+              }
+            ]
+          },
+          {
+            "Id": "sit-bad",
+            "Deviation": {
+              "Id": "dev-bad",
+              "Header": "Missing geom",
+              "Geometry": { "WGS84": "" }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -386,7 +386,8 @@ Six keys. Four have a free tier, and the two 🔴 ones are metered:
 | 🔴 | **OpenAI** | 🎙️ The voice experience + AI HUD summary. The mini model works; the standard model is noticeably smarter. Want Gemini or another provider behind the mic? PRs welcome | [platform.openai.com](https://platform.openai.com) — metered, see costs below |
 | 🟡 | **AISStream** | 🚢 Live global ships | [aisstream.io](https://aisstream.io) — free signup |
 | 🟡 | **NASA FIRMS** | 🔥 Live active fires | [firms.modaps.eosdis.nasa.gov](https://firms.modaps.eosdis.nasa.gov/api/map_key/) — free |
-| 🟡 | **TomTom** | 🚦 Live flow speeds and congestion colors for the simulated traffic layer | [developer.tomtom.com](https://developer.tomtom.com) — free tier available |
+| 🟡 | **Trafikverket** | 🇸🇪 Swedish road CCTV + street traffic (TravelTimeRoute / Situation; Stockholm default, more counties optional) | [api.trafikinfo.trafikverket.se](https://api.trafikinfo.trafikverket.se/) — free key; wait 30–60 min after signup |
+| 🟡 | **TomTom** | 🚦 Live flow speeds and congestion colors for the simulated traffic layer (optional global BYOK) | [developer.tomtom.com](https://developer.tomtom.com) — free tier available |
 
 ![Diving from city-scale live congestion straight into an intersection's public camera](docs/media/05-traffic-to-cctv.gif)
 

@@ -139,7 +139,13 @@ export const DATA_CREDITS = [
   {
     key: 'trafikverket-cctv',
     html:
-      'CCTV cameras &amp; frames (Stockholm county): ' +
+      'CCTV cameras &amp; frames (Sweden / Trafikverket; Stockholm county default): ' +
+      '<a href="https://api.trafikinfo.trafikverket.se/" target="_blank" rel="noopener">Contains data from Trafikverket</a>',
+  },
+  {
+    key: 'trafikverket-traffic',
+    html:
+      'Swedish street traffic (TravelTimeRoute + Situation): ' +
       '<a href="https://api.trafikinfo.trafikverket.se/" target="_blank" rel="noopener">Contains data from Trafikverket</a>',
   },
   {

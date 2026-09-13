@@ -6,6 +6,11 @@ import {
   CCTV_SOURCE_FETCH_TIMEOUT_MS,
 } from './constants.js';
 import {
+  parseTrafikverketCountyNos,
+  buildCountyNoFilterXml,
+} from '../trafikverket/county.js';
+import { SWEDEN_BBOX } from '../trafikverket/constants.js';
+import {
   toFiniteNumber,
   parsePointString,
   fallbackHeadingFromId,
@@ -42,12 +47,21 @@ export function trafikverketCctvStatus(env = process.env) {
  */
 export function buildTrafikverketCameraRequestXml(
   apiKey,
-  countyNo = TRAFIKVERKET_STOCKHOLM_COUNTY_NO,
+  countyNos = TRAFIKVERKET_STOCKHOLM_COUNTY_NO,
 ) {
   const key = escapeXml(String(apiKey || '').trim());
-  const county = Number.isFinite(Number(countyNo))
-    ? String(Math.floor(Number(countyNo)))
-    : String(TRAFIKVERKET_STOCKHOLM_COUNTY_NO);
+  // Accept legacy single CountyNo number OR array/null from parseTrafikverketCountyNos.
+  let counties = countyNos;
+  if (counties == null) {
+    counties = null;
+  } else if (typeof counties === 'number' || typeof counties === 'string') {
+    const n = Number(counties);
+    counties = Number.isFinite(n) && n > 0
+      ? [Math.floor(n)]
+      : [TRAFIKVERKET_STOCKHOLM_COUNTY_NO];
+  }
+  const countyFilter = buildCountyNoFilterXml(counties);
+  const countyClause = countyFilter ? countyFilter : '';
   return (
     `<REQUEST>` +
     `<LOGIN authenticationkey="${key}" />` +
@@ -55,7 +69,7 @@ export function buildTrafikverketCameraRequestXml(
     `<FILTER>` +
     `<AND>` +
     `<EQ name="Active" value="true" />` +
-    `<EQ name="CountyNo" value="${county}" />` +
+    countyClause +
     `</AND>` +
     `</FILTER>` +
     `<INCLUDE>Name</INCLUDE>` +
@@ -115,8 +129,15 @@ export function normalizeTrafikverketCamera(record) {
   const wgs84 = record.Geometry?.WGS84 ?? record.geometry?.WGS84 ?? '';
   const { lat, lon } = parsePointString(wgs84);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  // Stockholm county rough sanity box (reject wild mis-parses).
-  if (lat < 58.5 || lat > 60.5 || lon < 16.5 || lon > 20.0) return null;
+  // Sweden rough sanity box (CountyNo filter is the real scope; not Stockholm-hard-locked).
+  if (
+    lat < SWEDEN_BBOX.minLat ||
+    lat > SWEDEN_BBOX.maxLat ||
+    lon < SWEDEN_BBOX.minLon ||
+    lon > SWEDEN_BBOX.maxLon
+  ) {
+    return null;
+  }
 
   const cameraId = `tv-${rawId}`;
   const extractedHeading = trafikverketDirectionToHeading(
@@ -177,7 +198,8 @@ export async function loadTrafikverketSourcesFromOpenData() {
   if (!isTrafikverketCctvEnabled()) return [];
   const apiKey = String(process.env.TRAFIKVERKET_API_KEY || '').trim();
   try {
-    const body = buildTrafikverketCameraRequestXml(apiKey);
+    const countyNos = parseTrafikverketCountyNos(process.env);
+    const body = buildTrafikverketCameraRequestXml(apiKey, countyNos);
     const resp = await fetch(TRAFIKVERKET_CAMERA_URL, {
       method: 'POST',
       // text/xml (not application/xml) — Trafikinfo auth can flake on the latter.
@@ -212,7 +234,7 @@ export async function loadTrafikverketSourcesFromOpenData() {
       : DEFAULT_TRAFIKVERKET_MAX_SOURCES;
     const prioritized = prioritizeSources(unique, maxCount, [STOCKHOLM_CENTER]);
     console.log(
-      `[CCTV] Loaded Trafikverket camera sources: ${unique.length} active in Stockholm county (using nearest ${prioritized.length})`,
+      `[CCTV] Loaded Trafikverket camera sources: ${unique.length} active for configured counties (using nearest ${prioritized.length})`,
     );
     return prioritized;
   } catch (error) {

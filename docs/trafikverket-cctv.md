@@ -1,22 +1,45 @@
-# Trafikverket Stockholm CCTV (optional pack)
+# Trafikverket Sweden — CCTV + street traffic (optional pack)
 
 English first, Swedish second. This pack is **off** until you set a free
-`TRAFIKVERKET_API_KEY`. Austin / Caltrans / TfL keep working without it.
+`TRAFIKVERKET_API_KEY`. Austin / Caltrans / TfL and TomTom (optional global
+flow) keep working without it.
+
+**One key, two jobs.** The same Trafikinfo key unlocks Stockholm (and more of
+Sweden) **road cameras** plus **street traffic** overlays. TomTom stays optional
+BYOK if you want global congestion tiles elsewhere.
+
+Stockholm (`CountyNo = 1`) is the **default pack**, not an API hard limit —
+national cameras, TravelTimeRoute segments, and Situation events exist for many
+counties.
 
 ## English
 
 ### What you get
 
-With a key, God's Eye View loads **Stockholm county** road cameras
-(`CountyNo = 1`) from the official Trafikverket Trafikinfo **Camera** API and
-shows them as stills (`feedType: image`) via each camera's `PhotoUrl`, proxied
-like the other CCTV packs.
+With a key, God's Eye View loads from the official Trafikverket Trafikinfo API:
 
-- Default cap: nearest **200** of ~350+ county cameras
-  (`CCTV_TRAFIKVERKET_MAX_SOURCES`, default `200`).
-- Disable without removing the key: `CCTV_TRAFIKVERKET_ENABLED=0`.
-- Placement uses `Geometry.WGS84` WKT `POINT (lon lat)` only — never SWEREF99TM.
-- Presence check (no secrets): `GET /api/cctv/trafikverket-status`.
+1. **Cameras** — Active road cameras as stills (`feedType: image`) via each
+   camera's `PhotoUrl`, proxied like the other CCTV packs.
+2. **TravelTimeRoute** (schema 1.5) — street segments with `Geometry.WGS84`
+   LINESTRING + `TrafficStatus` (freeflow / heavy / congested), colored on the
+   globe. Primary Swedish street layer.
+3. **Situation** (schema 1.6, **requires** `namespace="road.trafficinfo"`) —
+   roadworks / messages / severity overlay (POINT or LINE).
+
+- Default county: Stockholm (`CountyNo = 1`). Override with
+  `TRAFIKVERKET_COUNTY_NOS=1,12,14` or `TRAFIKVERKET_COUNTY_NOS=*` (nationwide;
+  caps still apply).
+- Camera cap: nearest **200** (`CCTV_TRAFIKVERKET_MAX_SOURCES`).
+- Route cap: **250** (`TRAFIKVERKET_TRAFFIC_MAX_ROUTES`).
+- Situation cap: **400** (`TRAFIKVERKET_SITUATION_MAX_FEATURES`).
+- Disable cameras without removing the key: `CCTV_TRAFIKVERKET_ENABLED=0`.
+- Disable traffic overlays: `TRAFIKVERKET_TRAFFIC_ENABLED=0` /
+  `TRAFIKVERKET_SITUATION_ENABLED=0`.
+- Placement uses `Geometry.WGS84` only — never SWEREF99TM.
+- Presence checks (no secrets): `GET /api/cctv/trafikverket-status`,
+  `GET /api/trafikverket/status`.
+- **TrafficFlow** point sensors (~density/heatmap) are **not** shipped in this
+  pack yet (follow-up; `TRAFIKVERKET_TRAFFIC_FLOW_ENABLED` is reserved).
 
 ### Get a free API key
 
@@ -49,23 +72,41 @@ curl -sS -X POST 'https://api.trafikinfo.trafikverket.se/v2/data.json' \
 
 Contains data from Trafikverket.
 
+### TomTom (optional)
+
+Swedish street traffic does **not** require TomTom. Add a TomTom key only if you
+want live flow tiles for cities outside Sweden.
+
 ---
 
 ## Svenska
 
 ### Vad du får
 
-Med nyckel laddar God's Eye View **Stockholms läns** trafikkameror
-(`CountyNo = 1`) från Trafikverkets officiella Trafikinfo-**Camera**-API och
-visar dem som stillbilder (`feedType: image`) via varje kameras `PhotoUrl`,
-proxade som övriga CCTV-paket.
+Med nyckel laddar God's Eye View från Trafikverkets officiella Trafikinfo-API:
 
-- Standardtak: närmaste **200** av ~350+ kameror i länet
-  (`CCTV_TRAFIKVERKET_MAX_SOURCES`, standard `200`).
-- Stäng av utan att ta bort nyckeln: `CCTV_TRAFIKVERKET_ENABLED=0`.
-- Placering använder endast `Geometry.WGS84` WKT `POINT (lon lat)` — aldrig
-  SWEREF99TM.
-- Status utan hemligheter: `GET /api/cctv/trafikverket-status`.
+1. **Kameror** — aktiva trafikkameror som stillbilder (`feedType: image`) via
+   varje kameras `PhotoUrl`, proxade som övriga CCTV-paket.
+2. **TravelTimeRoute** (schema 1.5) — vägsegment med `Geometry.WGS84`
+   LINESTRING + `TrafficStatus` (freeflow / heavy / congested), färgade på
+   globen. Primärt svenskt gatulager.
+3. **Situation** (schema 1.6, **kräver** `namespace="road.trafficinfo"`) —
+   vägarbeten / meddelanden / allvarlighetsgrad (POINT eller LINE).
+
+- Standardlän: Stockholm (`CountyNo = 1`). Ändra med
+  `TRAFIKVERKET_COUNTY_NOS=1,12,14` eller `TRAFIKVERKET_COUNTY_NOS=*` (hela
+  landet; tak gäller fortfarande).
+- Kameratak: närmaste **200** (`CCTV_TRAFIKVERKET_MAX_SOURCES`).
+- Rutt-tak: **250** (`TRAFIKVERKET_TRAFFIC_MAX_ROUTES`).
+- Situation-tak: **400** (`TRAFIKVERKET_SITUATION_MAX_FEATURES`).
+- Stäng av kameror utan att ta bort nyckeln: `CCTV_TRAFIKVERKET_ENABLED=0`.
+- Stäng av trafiklager: `TRAFIKVERKET_TRAFFIC_ENABLED=0` /
+  `TRAFIKVERKET_SITUATION_ENABLED=0`.
+- Placering använder endast `Geometry.WGS84` — aldrig SWEREF99TM.
+- Status utan hemligheter: `GET /api/cctv/trafikverket-status`,
+  `GET /api/trafikverket/status`.
+- **TrafficFlow**-punktsensorer (densitet/heatmap) levereras **inte** i detta
+  paket ännu (uppföljning; `TRAFIKVERKET_TRAFFIC_FLOW_ENABLED` är reserverad).
 
 ### Skapa gratis API-nyckel
 
@@ -97,3 +138,8 @@ curl -sS -X POST 'https://api.trafikinfo.trafikverket.se/v2/data.json' \
 ### Attribution
 
 Innehåller data från Trafikverket.
+
+### TomTom (valfritt)
+
+Svensk gatutrafik kräver **inte** TomTom. Lägg till TomTom-nyckel bara om du
+vill ha live flödesplattor för städer utanför Sverige.
